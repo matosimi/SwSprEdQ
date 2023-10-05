@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" class="notranslate" translate="no">
+<head>
+  <meta charset="UTF-8" />
+	<meta name="description" content="Software sprite editor for Atari 8-bit" />
+	<meta name="google" content="notranslate" />
+  <title>SwSprEd - Atari Software Sprite Editor</title>
+  <!-- <script src="js/Sortable.js"></script> -->
+  <script src='https://code.jquery.com/jquery-latest.min.js' type='text/javascript'></script>
+  <!-- <script src="js/jquery-sortable.js"></script>   -->
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.5/lodash.js' type='text/javascript'></script>
+  <link rel='stylesheet' type='text/css' href='css/style.css?v=084'>
+</head>
+
+<body>
+  <div id='app'>
+    <ul id='appmenu' class='menulist'></ul>
+    <ul id='framemenu' class='menulist'></ul>
+  </div>
+
+  <div id='main'>
+    <div id='editor_box'></div>
+    <div id='color_box'>
+      <div class='colorbox' id='color0'>BACKGROUND<div class='bits'>(00)</div></div>
+			<div class='colorrow'>
+				<div class='colorbox' id='color1'>COLOR 1<div class='bits'>(01)</div></div>
+				<div class='colorbox' id='color4'>COLOR 1 alter<div class='bits'>(01)</div></div>
+			</div>
+      <div class='colorbox' id='color2'>COLOR 2<div class='bits'>(10)</div></div>
+      <div class='colorrow'>
+				<div class='colorbox' id='color3'>COLOR 3<div class='bits'>(11)</div></div>
+				<div class='colorbox' id='color5'>COLOR 3 alter<div class='bits'>(11)</div></div>
+      </div>
+      <div id='framepreview'></div>
+    </div>
+  </div>
+
+  <div id='timeline'>
+    <div id='framelist'></div>
+    <ul id='timemenu' class='menulist'></ul>
+  </div>
+
+  <div id='help_dialog' class='dialog'>
+    <div class='dialog_title'>Help</div>
+    <div class='dialog_content'>
+      <div class='dialog_blocks'>
+        <div class='dialog_block'>
+            <h3>Keyboard Shortcuts:</h3>
+            <fieldset>
+            <p><b>ctrl + o</b> : Open new sprite file</p>
+            <p><b>ctrl + s</b> : Save sprite to file</p>
+            <p><b>0</b> : select color 0 (background)</p>
+            <p><b>1</b> : select color 1</p>
+            <p><b>2</b> : select color 2</p>
+            <p><b>3</b> : select color 3</p>
+
+            <p><b>space</b> : Play/Stop animation</p>
+            <p><b>left/right arrow</b> : Navigation within the frames</p>
+            <p><b>home/end</b> : Jump to first/last frame</p>
+            <p><b>ctrl + c</b> : Copy frame contents</p>
+            <p><b>ctrl + v</b> : Paste frame contents</p>
+            <p><b>Insert</b> : Add new empty frame</p>
+            <p><b>Delete</b> : Delete current frame</p>
+            <p><b>ctrl + z</b> : Undo last operation</p>
+            <p><b>ctrl + y</b> : Revert undo</p>
+            <p><b>ctrl + e</b> : Toggle export popup</p>
+            <p><b>esc</b> : Close all popup windows</p>
+          </fieldset>
+        </div>
+      </div>
+      <hr>
+      <div class='dialog_blocks'>
+        <div class='dialog_block'>
+          <form action="https://www.paypal.com/donate" method="post" target="_top">
+            <input type="hidden" name="business" value="QZA2BYJPP7M7L">
+            <input type="hidden" name="no_recurring" value="0">
+            <input type="hidden" name="item_name" value="matosimi.atari.org">
+            <input type="hidden" name="currency_code" value="EUR">
+            <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Donate with PayPal button" class="donate">
+            </form>
+
+          This software is free.<br> Source code <a href='https://sourceforge.net/p/swspred-atari/code/HEAD/tree/'>available</a>. <br>
+          Coded for you by <a href='http://matosimi.atari.org'>matosimi</a>, forked from <a href='https://bocianu.gitlab.io/spred/'>SprEd</a> by <a href='https://bocianu.atari.pl'>bocianu</a>.<br><br>
+          If you like this app, please consider a donation.<br><br>
+          <hr>
+        </div>
+      </div>
+
+      <div class='menuitem clear_left' id='close_help'>Close</div>
+    </div>
+</div>
+
+
+  <div id='export_dialog' class='dialog'>
+      <div class='dialog_title'>Export</div>
+      <div class='dialog_content'>
+        <div class='dialog_blocks'>
+          <div class='dialog_block'>
+            <fieldset>
+              <label class='dialog_label'>Template:</label>
+              <select id='opt_lastTemplate_i' class='dialog_text_input'>
+              </select>
+            </fieldset>
+            <textarea id='export_frame'></textarea>
+            <hr>
+          </div>
+
+        </div>
+        <div class='menuitem clear_left' id='close_export'>Close</div>
+      </div>
+  </div>
+  
+
+  <div id='options_dialog' class='dialog'>
+      <div class='dialog_title'>Options</div>
+      <div class='dialog_content'>
+
+        <div class='dialog_blocks'>
+          <div class='dialog_block'>
+            <h3>Editor Options:</h3>
+
+            <fieldset>
+              <label class='dialog_label'>Sprite Height:</label>
+              <input type='text' id='opt_spriteHeight_i' class='dialog_text_input input_narrow'>
+            </fieldset>
+
+            <fieldset>
+              <label class='dialog_label'>Sprite Width:</label>
+							<select id='opt_spriteWidth_i' class='dialog_text_input'>
+                <option value='4'>4</option>
+                <option value='8'>8</option>
+                <option value='12'>12</option>
+                <option value='16'>16</option>
+								<option value='20'>20</option>
+                <option value='24'>24</option>
+              </select>
+            </fieldset>
+
+            <fieldset>
+              <label class='dialog_label'>Sprite line resolution:</label>
+              <select id='opt_lineResolution_i' class='dialog_text_input'>
+                <option value='1'>1</option>
+                <option value='2'>2</option>
+              </select>
+            </fieldset>
+
+            <fieldset>
+              <label class='dialog_label checkbox_label'>
+                <input type='checkbox' id='opt_squarePixel_b'/>Square Pixel</label>
+            </fieldset>
+
+
+            <fieldset>
+              <label class='dialog_label'>Colour palette:</label>
+              <select id='opt_palette_s' class='dialog_text_input'>
+                <option value='PAL'>PAL</option>
+                <option value='NTSC'>NTSC</option>
+              </select>
+            </fieldset>
+
+            <fieldset>
+              <label class='dialog_label'>Editor Size:</label>
+              <select id='opt_cellSize_i' class='dialog_text_input'>
+                <option value='8'>x1</option>
+                <option value='16'>x2</option>
+                <option value='24'>x3</option>
+                <option value='32'>x4</option>
+              </select>
+            </fieldset>
+
+            <fieldset>
+              <label class='dialog_label'>Animaton Delay [frames]:</label>
+              <input type='text' id='opt_animationSpeed_i' class='dialog_text_input input_narrow'>
+            </fieldset>
+
+            <fieldset>
+              <label class='dialog_label checkbox_label'>
+                <input type='checkbox' id='opt_showGrid_b'/>Show Grid</label>
+            </fieldset>
+          </div>
+
+          <div class='dialog_block'>
+            <h3>Import/Export Options:</h3>
+            <fieldset>
+              <label class='dialog_label'>Show bytes as:</label>
+              <select id='opt_bytesExport_s' class='dialog_text_input'>
+                  <option value='HEX'>HEX</option>
+                  <option value='DEC'>DEC</option>
+                  <option value='BIN'>BIN</option>
+              </select>
+            </fieldset>
+
+            <fieldset>
+              <label class='dialog_label'>Bytes per line:</label>
+              <input type='text' id='opt_bytesPerLine_i' class='dialog_text_input input_narrow'>
+            </fieldset>
+
+            <fieldset>
+              <label class='dialog_label'>Starting Line Number:</label>
+              <input type='text' id='opt_startingLine_i' class='dialog_text_input input_narrow'>
+            </fieldset>
+            <fieldset>
+              <label class='dialog_label'>Step:</label>
+              <input type='text' id='opt_lineStep_i' class='dialog_text_input input_narrow'>
+            </fieldset>
+          </div>
+        </div>
+
+        <hr>
+        <div class='menuitem clear_left' id='save_options'>&nbsp; &nbsp; OK &nbsp; &nbsp;</div>
+      </div>
+  </div>
+
+  <script src='js/exportTemplates.js?v=084q' type='text/javascript'></script>
+  <script src='js/gui.js?v=084q' type='text/javascript'></script>
+  <script src='js/app.js?v=084q' type='text/javascript'></script>
+</body>
+
+</html>
+
+

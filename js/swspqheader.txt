@@ -1,0 +1,12 @@
+53 77 53 70 71 21
+selectedFrame
+selectedColor
+backgroundColor
+animSpeed
+Pal=0, NTSC=1
+unused 6 bytes
+frames
+height
+width 
+color0,color1,color2,color0alter,color2alter
+width*frames*height (colorData)
