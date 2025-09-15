@@ -2,8 +2,8 @@ const GRID_COLOR = 'rgba(200,200,200,0.3)';
 const MAX_FILESIZE = 640 * 1024;
 const swspqHeader = [0x53,0x77,0x53,0x70,0x71,0x21]; //SwSpq
 const defaultOptions = {
-    version: '0.8.4',
-		releaseDate: '05.10.2023',
+    version: '0.9.0',
+		releaseDate: '15.09.2025',
     storageName: 'SwSprEdStore084q',
     undoLevels: 128,
     lineResolution: 2,
@@ -33,6 +33,23 @@ let playerInterval = null;
 let undos = [];
 let redos = [];
 let beforeDrawingState = null;
+
+// Custom palette buffer: 128 entries, each 3 bytes RGB (384 bytes)
+let customPalette = null;
+const PALETTE_KEY = `${defaultOptions.storageName}_PALETTE`;
+
+const bytesToBase64 = (bytes) => {
+	let binary = '';
+	for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+	return btoa(binary);
+}
+
+const base64ToBytes = (b64) => {
+	const binary = atob(b64);
+	const bytes = new Uint8Array(binary.length);
+	for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i) & 0xFF;
+	return bytes;
+}
 
 const defaultWorkspace = {
     selectedColor: 1,
@@ -172,7 +189,7 @@ const redo = () => {
         storeWorkspace();
         storeUndos();
         updateScreen();
-    }
+				}
 }
 
 // *********************************** COLOR OPERATIONS
@@ -219,6 +236,26 @@ const getColorRGB = (frame,c) => {
 }
 
 const getByteRGB = (cval) => {
+
+	// If a custom palette is selected and loaded, prefer it over PAL/NTSC math
+	if (options.palette === 'CUSTOM' && customPalette instanceof Uint8Array) {
+		if (customPalette.length === 768) {
+			const fileIndex = (cval | 1) & 0xFF; // ensure odd index within 0..255
+			const base = fileIndex * 3;
+			const r = customPalette[base + 0] | 0;
+			const g = customPalette[base + 1] | 0;
+			const b = customPalette[base + 2] | 0;
+			return `rgb(${r},${g},${b})`;
+		}
+		if (customPalette.length === 384) {
+			const idx = Math.max(0, Math.min(127, Math.round(cval / 2)));
+			const base = idx * 3;
+			const r = customPalette[base + 0] | 0;
+			const g = customPalette[base + 1] | 0;
+			const b = customPalette[base + 2] | 0;
+			return `rgb(${r},${g},${b})`;
+		}
+	}
 
     const cr = (cval >> 4) & 15;
     const lm = cval & 15;
@@ -390,7 +427,8 @@ const onCanvasMove = (event) => {
 const clickOnCanvas = (event) => {
     if (player) { return false };
     let color = workspace.selectedColor;
-    if (event.buttons == 2) { // right button
+		// Right mouse OR Shift+Left acts as background draw
+    if (event.buttons === 2 || (event.buttons === 1 && event.shiftKey)) {
             color = 0;
     }
     currentCell = locateCell(event);
@@ -926,6 +964,53 @@ const openFile = function (event) {
     dropFile(file)
 };
 
+// Load custom 128xRGB palette (384 bytes)
+const openPaletteFile = function (event) {
+	var input = event.target;
+	var file = input.files[0];
+	loadCustomPalette(file);
+};
+
+const loadCustomPalette = (file) => {
+	if (!file) { return; }
+	const reader = new FileReader();
+	reader.onload = () => {
+		try {
+			const bytes = new Uint8Array(reader.result);
+			if (bytes.length !== 384 && bytes.length !== 768) {
+				alert('Palette file must be 384 bytes (128xRGB) or 768 bytes (256xRGB).');
+				return;
+			}
+			customPalette = bytes;
+			try { localStorage.setItem(PALETTE_KEY, bytesToBase64(bytes)); } catch(e) { console.log(e); }
+			updateScreen();
+		} catch (e) {
+			console.log(e);
+			alert('Failed to load palette file.');
+		}
+	};
+	reader.readAsArrayBuffer(file);
+};
+
+const clearCustomPalette = () => {
+	customPalette = null;
+	try { localStorage.removeItem(PALETTE_KEY); } catch(e) { console.log(e); }
+	updateScreen();
+};
+
+const loadPaletteFromStorage = () => {
+	try {
+		const b64 = localStorage.getItem(PALETTE_KEY);
+		if (!b64) return;
+		const bytes = base64ToBytes(b64);
+		if (bytes && (bytes.length === 384 || bytes.length === 768)) {
+			customPalette = bytes;
+		}
+	} catch(e) {
+		console.log(e);
+	}
+}
+
 const parseBinary = (binData) => {
 
     const parseError = msg => { alert(msg); }
@@ -1442,6 +1527,7 @@ $(document).ready(function () {
     $('title').append(` v.${options.version}q`);
     
     app.addMenuFileOpen('Load', openFile, 'appmenu', 'Loads Display List binary file', '.swspq');
+    // Removed Load/Clear Palette from main menu; moved to Options dialog
     app.addMenuItem('Save', saveFile, 'appmenu', 'Saves Display List as a binary file');
     app.addMenuItem('Export', toggleExport, 'appmenu', 'Exports Display List to various formats');
     app.addSeparator('appmenu');
@@ -1500,6 +1586,20 @@ $(document).ready(function () {
 
     loadWorkspace();
     loadUndos();
+    loadPaletteFromStorage();
+
+    // Wire custom palette controls in options dialog
+    $('#btn_load_palette').off('click').on('click', function(){
+        $('#custom_palette_file').val('');
+        $('#custom_palette_file').click();
+    });
+    $('#custom_palette_file').off('change').on('change', function(e){
+        openPaletteFile(e);
+    });
+    $('#btn_clear_palette').off('click').on('click', function(){
+        clearCustomPalette();
+    });
+
     newCanvas();
     updateScreen();
 

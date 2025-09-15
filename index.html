@@ -156,7 +156,14 @@
               <select id='opt_palette_s' class='dialog_text_input'>
                 <option value='PAL'>PAL</option>
                 <option value='NTSC'>NTSC</option>
+                <option value='CUSTOM'>Custom</option>
               </select>
+            </fieldset>
+            <fieldset id='custom_palette_controls'>
+              <label class='dialog_label'>Custom palette:</label>
+              <input type='file' id='custom_palette_file' class='dialog_text_input' accept='*/*' style='display:none'>
+              <div class='menuitem' id='btn_load_palette'>Load Palette</div>
+              <div class='menuitem' id='btn_clear_palette'>Clear Palette</div>
             </fieldset>
 
             <fieldset>
