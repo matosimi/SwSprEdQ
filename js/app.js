@@ -2,8 +2,8 @@ const GRID_COLOR = 'rgba(200,200,200,0.3)';
 const MAX_FILESIZE = 640 * 1024;
 const swspqHeader = [0x53,0x77,0x53,0x70,0x71,0x21]; //SwSpq
 const defaultOptions = {
-    version: '0.9.0',
-		releaseDate: '15.09.2025',
+    version: '1.0.0',
+		releaseDate: '17.09.2025',
     storageName: 'SwSprEdStore084q',
     undoLevels: 128,
     lineResolution: 2,
@@ -189,7 +189,7 @@ const redo = () => {
         storeWorkspace();
         storeUndos();
         updateScreen();
-				}
+    }
 }
 
 // *********************************** COLOR OPERATIONS
@@ -415,7 +415,7 @@ const locateCell = (event) => {
 }
 
 const onCanvasMove = (event) => {
-    if (player) { return false };
+    if (player || $('.dialog:visible').length > 0) { return false };
     const newCell = locateCell(event);
     if (!sameCell(currentCell,newCell)) {
         if (event.buttons > 0) {
@@ -425,19 +425,18 @@ const onCanvasMove = (event) => {
 }
 
 const clickOnCanvas = (event) => {
-    if (player) { return false };
+    if (player || $('.dialog:visible').length > 0) { return false };
     let color = workspace.selectedColor;
 		// Right mouse OR Shift+Left acts as background draw
     if (event.buttons === 2 || (event.buttons === 1 && event.shiftKey)) {
             color = 0;
     }
     currentCell = locateCell(event);
-    //console.log(`x: ${currentCell.col} y: ${currentCell.row} c: ${color}`);
     setColorOn(currentCell.col,currentCell.row,color);
 }
 
 const clickRightOnCanvas = (event) => {
-    if (player) { return false };
+    if (player || $('.dialog:visible').length > 0) { return false };
     event.preventDefault();
     return false;
 }
@@ -626,6 +625,13 @@ const toggleExport = () => {
     }
 }
 
+const toggleImportFrame = () => {
+    if (toggleDiv('#import_dialog')) {
+        $('#import_text').val(''); // Clear textarea when opening
+        refreshOptions();
+    }
+};
+
 const toggleHelp = () => {
     toggleDiv('#help_dialog')
 }
@@ -683,7 +689,7 @@ const validateOptions = () => {
 
     clampOption('bytesPerLine',1,100000);
     clampOption('spriteHeight',1,128);
-    clampOption('spriteWidth',4,24);
+    clampOption('spriteWidth',4,32);
     clampOption('animationSpeed',1,100);
     
     return true;
@@ -793,7 +799,7 @@ const parseTemplate = (template) => {
     let tframe = 0;
     let tshift = 0;
     let tcolumn = 0;
-		let lastColumn = 0;
+	let lastColumn = 0;
     let lines = '';
 
     const formatByte = b => {
@@ -820,6 +826,9 @@ const parseTemplate = (template) => {
         return template
         .replace(/#height#/g, formatByte(options.spriteHeight))
         .replace(/#width#/g, formatByte(options.spriteWidth >>> 2))
+        .replace(/#heightdec#/g, options.spriteHeight)
+        .replace(/#heightdecdiv8#/g, Math.ceil(options.spriteHeight/8))
+        .replace(/#widthdec#/g, options.spriteWidth >>> 2)
         .replace(/#frames#/g, formatByte(workspace.frames.length))
         .replace(/#maxheight#/g, formatByte(options.spriteHeight-1))
         .replace(/#maxframes#/g, formatByte(workspace.frames.length-1))
@@ -843,16 +852,16 @@ const parseTemplate = (template) => {
     const pushLine = (line, last) => {
         const num = (template.line.numbers) ? `${options.startingLine + options.lineStep * lineCount} `:'';
         lineCount++;
-				if (tcolumn == lastColumn)
-				{
-        	lines += `${num}${template.line2.prefix}${line}${last?template.line2.lastpostfix || template.line2.postfix:template.line2.postfix}`;
+        if (tcolumn == lastColumn)
+        {
+            lines += `${num}${template.line2.prefix}${line}${last?template.line2.lastpostfix || template.line2.postfix:template.line2.postfix}`;
         }
-				else
-				{
-					lines += `${num}${template.line.prefix}${line}${last?template.line.lastpostfix || template.line.postfix:template.line.postfix}`;
-					lastColumn = tcolumn;
-				}
-				byteInRow = 0;
+        else
+        {
+            lines += `${num}${template.line.prefix}${line}${last?template.line.lastpostfix || template.line.postfix:template.line.postfix}`;
+            lastColumn = tcolumn;
+        }
+        byteInRow = 0;
         lineBody = '';
     }
 
@@ -878,6 +887,7 @@ const parseTemplate = (template) => {
         pushByte(workspace.backgroundColor);
         pushArray(workspace.frames[0].colors);
         pushBlock(lines, template.colors);
+        lines = '';
     }
 
     const pushArray = a => {
@@ -896,37 +906,129 @@ const parseTemplate = (template) => {
         
     const pushSpriteData = () => {
         let shifts = template.shifts;
-				lastColumn = -1;
-				if (shifts == undefined) shifts = 0;
-				for (let i = 0; i <= shifts; i++)
-				{
-					tshift = i;
-					if (template.shifts != undefined) 
-						pushBlock("", template.shift);
-	        _.each(workspace.frames, (frame,f) => {
-	            let sprite = '';
-	            for (let byteCol = 0; byteCol < Math.floor(options.spriteWidth / 4); byteCol++)
-	            {
-	              lines = '';
-	              tframe = f;
-	              tcolumn = byteCol;
-	              //pushBlock(frame, template.frame)
-	              frame.data[byteCol].length = options.spriteHeight;
-								let ai = byteCol*4 - i;
-	              pushArray(combinePixelsToBytes(ai < 0 ? frame.data[options.spriteWidth - 1] : frame.data[ai],
-	                                             ai < -1 ? frame.data[options.spriteWidth - 1] : frame.data[ai + 1],
-	                                             ai < -2 ? frame.data[options.spriteWidth - 1] : frame.data[ai + 2],
-	                                             ai < -3 ? frame.data[options.spriteWidth - 1] : frame.data[ai + 3]
-	                                             ));
-	              sprite += getBlock(lines, template.column);
-	            }
-	            pushBlock(sprite, template.frame);
-	        });
-				}   
-        
-    }
+        lastColumn = -1;
+        if (shifts == undefined) shifts = 0;
+        for (let i = 0; i <= shifts; i++) {
+            tshift = i;
+            if (template.shifts != undefined) 
+                pushBlock("", template.shift);
+            _.each(workspace.frames, (frame,f) => {
+                tframe = f;
+                let sprite = '';
+                if (template?.fontmaker == 1) {
+                    pushBlock('', template.frame);
+                    let numberFonts = Math.ceil(options.spriteHeight / 32);
+                    let charWidth = options.spriteWidth / 4;
+                    let charHeigth = Math.floor(options.spriteHeight / 8);
+                    for (let font = 0; font < numberFonts; font++)
+                    {
+                        
+                        let linesInThisFont = (charHeigth - font*4) >= 4 ? 4 : charHeigth - font*4;
+                        //console.log(linesInThisFont);
+                        template.line.prefix = template.line.poop
+                                      .replace("#char_height#", linesInThisFont)
+                                      .replace("#char_width#", charWidth)
+                          
+                        //console.log(template.line.prefix);
 
-    pushSpriteColors();
+                        for (let charY = 0; charY < linesInThisFont; charY++)
+                            for (let charX = 0; charX < charWidth; charX++)
+                                for (let charLine = 0; charLine < 8; charLine++)
+                                 {
+                                 	sprite += formatByte(frame.data[charX*4][font*32 + charY*8+charLine]*64+
+                                                                 frame.data[charX*4+1][font*32 + charY*8+charLine]*16+
+                                                                 frame.data[charX*4+2][font*32 + charY*8+charLine]*4+
+                                                                 frame.data[charX*4+3][font*32 + charY*8+charLine]);
+                                 }
+                        pushBlock(sprite, template.line);
+                        sprite = '';
+                    }
+                    
+                    
+                } else if (template.name === 'Rows Data Export') {
+                    // Export in row-by-row format (4 pixels per byte)
+                    tline = 0;
+                    for (let row = 0; row < options.spriteHeight; row++) {
+                        let lineBytes = [];
+                        for (let byteCol = 0; byteCol < Math.ceil(options.spriteWidth / 4); byteCol++) {
+                            const col0 = frame.data[byteCol * 4]?.[row] || 0;
+                            const col1 = frame.data[byteCol * 4 + 1]?.[row] || 0;
+                            const col2 = frame.data[byteCol * 4 + 2]?.[row] || 0;
+                            const col3 = frame.data[byteCol * 4 + 3]?.[row] || 0;
+                            const byte = col0 * 64 + col1 * 16 + col2 * 4 + col3;
+                            pushByte(byte, row == options.spriteHeight - 1 && byteCol == Math.ceil(options.spriteWidth / 4) - 1);
+                        }
+                    }
+                    pushBlock(lines, template.frame);
+                    lines = '';
+                    tline = 0;
+                } else if (template.name === 'Rows Chars Export') {
+                    // Export in character chunks (8 bytes per character)
+                    const charsPerRow = Math.floor(options.spriteWidth / 4);
+                    const charsPerCol = Math.ceil(options.spriteHeight / 8);
+                    const totalChars = charsPerRow * charsPerCol;
+                    const totalBytes = totalChars * 8;
+                    
+                    for (let charY = 0; charY < charsPerCol; charY++) {
+                        tcharline = charY;
+                        for (let charX = 0; charX < charsPerRow; charX++) {
+                            for (let scanline = 0; scanline < 8; scanline++) {
+                                const row = charY * 8 + scanline;
+                                let byte = 0;
+                                
+                                if (row < options.spriteHeight) {
+                                    const col0 = frame.data[charX * 4]?.[row] || 0;
+                                    const col1 = frame.data[charX * 4 + 1]?.[row] || 0;
+                                    const col2 = frame.data[charX * 4 + 2]?.[row] || 0;
+                                    const col3 = frame.data[charX * 4 + 3]?.[row] || 0;
+                                    byte = col0 * 64 + col1 * 16 + col2 * 4 + col3;
+                                }
+                                
+                                pushByte(byte, row === options.spriteHeight - 1 && charX === charsPerRow - 1 && scanline === 7);
+                            }
+                        }
+                    }
+                    pushBlock(lines, template.frame);
+                    lines = '';
+                } else {
+                    // Original column-based export
+                    const bytesPerRow = Math.ceil(options.spriteWidth / 4);
+                    for (let byteCol = 0; byteCol < bytesPerRow; byteCol++) {
+                        lines = '';
+                        tcolumn = byteCol;
+                        let ai = byteCol*4 - i;
+                        
+                        // Get columns with bounds checking
+                        const getColumn = (index) => {
+                            if (index < 0) return frame.data[options.spriteWidth - 1];
+                            if (index >= options.spriteWidth) return frame.data[0];
+                            return frame.data[index];
+                        };
+
+                        const col0 = getColumn(ai);
+                        const col1 = getColumn(ai + 1);
+                        const col2 = getColumn(ai + 2);
+                        const col3 = getColumn(ai + 3);
+
+                        // Ensure we only process the exact number of rows needed
+                        const combinedBytes = combinePixelsToBytes(col0, col1, col2, col3);
+                        for (let row = 0; row < options.spriteHeight; row++) {
+                            pushByte(combinedBytes[row], row === options.spriteHeight - 1);
+                        }
+                        sprite += getBlock(lines, template.column);
+                    }
+                    pushBlock(sprite, template.frame);
+                }
+            });
+        }   
+    }
+		if (template?.colors)	//do not push colors if template does not have them
+			{
+                tline = 1; //set line to 1 to avoid line 0
+                tcharLine = 1;
+                pushSpriteColors();
+            }
+			
     pushSpriteData();
 
     return parseTemplateVars(`${template.block.prefix}${templateLines}${template.block.postfix}`);
@@ -1105,6 +1207,295 @@ const dropFile = function (file) {
         reader.readAsArrayBuffer(file);
     }
 }
+
+// import
+const importFrame = () => {
+    const textData = $('#import_text').val();
+    if (!textData) {
+        alert("Please enter frame data to import");
+        return false;
+    }
+
+    const parsedData = parseImportedFrameData(textData);
+    if (parsedData) {
+        saveUndo('import frame', () => {
+            workspace.frames[workspace.selectedFrame].data = parsedData;
+            if (!workspace.frames[workspace.selectedFrame].colors) {
+                workspace.frames[workspace.selectedFrame].colors = [0x28, 0xca, 0x94];
+            }
+            storeWorkspace();
+            const stored = JSON.parse(localStorage.getItem(`${defaultOptions.storageName}_WS`));
+            if (!stored || !stored.frames[workspace.selectedFrame] || 
+                JSON.stringify(stored.frames[workspace.selectedFrame].data) !== JSON.stringify(parsedData)) {
+                console.error("Failed to store frame data correctly");
+                return false;
+            }
+            updateScreen();
+            toggleImportFrame();
+            return true;
+        })();
+    }
+    return true;
+};
+
+const handleFileInput = (file) => {
+    if (file.size > 4096) { // 4KB
+        if (!confirm('File is larger than 4KB. Do you want to proceed?')) {
+            return;
+        }
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const arrayBuffer = e.target.result;
+        const bytes = new Uint8Array(arrayBuffer);
+        let hexString = '';
+        for (let i = 0; i < bytes.length; i++) {
+            hexString += bytes[i].toString(16).padStart(2, '0');
+        }
+        $('#import_text').val(hexString);
+    };
+    reader.readAsArrayBuffer(file);
+};
+
+const parseImportedFrameData = (textData) => {
+    try {
+        textData = textData.trim();
+        let frameData = [];
+        let width = options.spriteWidth;
+        let height = options.spriteHeight;
+        const importMode = $('#import_mode').val();
+
+        // Check if input is a continuous hex string (no separators)
+        if (/^[0-9a-fA-F]+$/.test(textData)) {
+            const bytes = [];
+            for (let i = 0; i < textData.length; i += 2) {
+                const byte = parseInt(textData.substr(i, 2), 16);
+                if (!isNaN(byte)) {
+                    bytes.push(byte);
+                }
+            }
+            textData = bytes.join(', ');
+        }
+
+        if (importMode === 'fontmaker') {
+            // Parse as JSON character chunks
+            try {
+                const jsonData = JSON.parse(textData);
+                if (jsonData.Data && typeof jsonData.Data === 'string') {
+                    const hexData = jsonData.Data.replace(/\s/g, '');
+                    width = parseInt(jsonData.Width) * 4 || width;
+                    height = parseInt(jsonData.Height) * 8 || height;
+
+                    if (width !== options.spriteWidth || height !== options.spriteHeight) {
+                        alert(`Size of data (${width}x${height}) does not match sprite size (${options.spriteWidth}x${options.spriteHeight})!`);
+                        return null;
+                    }
+
+                    const bytes = [];
+                    for (let i = 0; i < hexData.length; i += 2) {
+                        const byte = parseInt(hexData.substr(i, 2), 16);
+                        if (!isNaN(byte)) {
+                            bytes.push(byte);
+                        }
+                    }
+
+                    const charsPerRow = width / 4;
+                    const charsPerCol = height / 8;
+                    frameData = Array.from({ length: width }, () => Array(height).fill(0));
+
+                    let byteIndex = 0;
+                    for (let charY = 0; charY < charsPerCol; charY++) {
+                        for (let charX = 0; charX < charsPerRow; charX++) {
+                            for (let scanline = 0; scanline < 8; scanline++) {
+                                if (byteIndex >= bytes.length) break;
+                                const byte = bytes[byteIndex++];
+                                const row = charY * 8 + scanline;
+                                if (row >= height) continue;
+
+                                const pixels = [
+                                    (byte >> 6) & 0x3,
+                                    (byte >> 4) & 0x3,
+                                    (byte >> 2) & 0x3,
+                                    byte & 0x3
+                                ];
+
+                                for (let px = 0; px < 4; px++) {
+                                    const col = charX * 4 + px;
+                                    if (col < width) {
+                                        frameData[col][row] = pixels[px];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (jsonError) {
+                alert('Invalid JSON format for fontmaker mode');
+                return null;
+            }
+        } else {
+            // Parse as text lines for other modes
+            const lines = textData.split('\n').map(line => {
+                // Remove block comments first
+                line = line.replace(/\/\*[\s\S]*?\*\//g, '');
+                // Remove line comments
+                line = line.replace(/;.*$/, '').replace(/\/\/.*$/, '');
+                return line.trim();
+            }).filter(line => line.length > 0);
+            let byteData = [];
+
+            lines.forEach(line => {
+                if (line) {
+                    const values = line.split(/[\s,]+/)
+                        .map(val => {
+                            if (val.startsWith('$')) {
+                                return parseInt(val.slice(1), 16);
+                            } else if (val.startsWith('0x')) {
+                                return parseInt(val.slice(2), 16);
+                            } else if (val.startsWith('%')) {
+                                return parseInt(val.slice(1), 2);
+                            }
+                            return parseInt(val, 10);
+                        })
+                        .filter(val => !isNaN(val) && val >= 0 && val <= 255);
+                    
+                    if (values.length > 0) {
+                        byteData.push(...values);
+                    }
+                }
+            });
+
+            frameData = Array.from({ length: width }, () => Array(height).fill(0));
+
+            if (importMode === 'columns') {
+                // Parse as columns (4 pixels per byte)
+                const bytesPerColumn = Math.ceil(height / 4);
+                const totalColumns = width;
+                const expectedBytes = bytesPerColumn * totalColumns;
+
+                if (byteData.length < expectedBytes) {
+                    alert(`Insufficient data: ${byteData.length} bytes provided, need at least ${expectedBytes} for ${width}x${height} sprite!`);
+                    return null;
+                }
+
+                let byteIndex = 0;
+                // Process columns in groups of 4
+                for (let colGroup = 0; colGroup < width; colGroup += 4) {
+                    // For each row in the current group of columns
+                    for (let row = 0; row < height; row++) {
+                        if (byteIndex >= byteData.length) break;
+                        const byte = byteData[byteIndex++];
+                        
+                        // Split byte into 4 pixels and place in current columns
+                        const pixels = [
+                            (byte >> 6) & 0x3,
+                            (byte >> 4) & 0x3,
+                            (byte >> 2) & 0x3,
+                            byte & 0x3
+                        ];
+
+                        // Place pixels in the current group of columns
+                        for (let px = 0; px < 4; px++) {
+                            const col = colGroup + px;
+                            if (col < width) {
+                                frameData[col][row] = pixels[px];
+                            }
+                        }
+                    }
+                }
+            } else if (importMode === 'rowsData') {
+                // Parse as rows (4 pixels per byte)
+                const bytesPerRow = Math.ceil(width / 4);
+                const totalRows = height;
+                const expectedBytes = bytesPerRow * totalRows;
+
+                if (byteData.length < expectedBytes) {
+                    alert(`Insufficient data: ${byteData.length} bytes provided, need at least ${expectedBytes} for ${width}x${height} sprite!`);
+                    return null;
+                }
+
+                let byteIndex = 0;
+                for (let row = 0; row < height; row++) {
+                    for (let byteCol = 0; byteCol < bytesPerRow; byteCol++) {
+                        if (byteIndex >= byteData.length) break;
+                        const byte = byteData[byteIndex++];
+
+                        const pixels = [
+                            (byte >> 6) & 0x3,
+                            (byte >> 4) & 0x3,
+                            (byte >> 2) & 0x3,
+                            byte & 0x3
+                        ];
+
+                        for (let px = 0; px < 4; px++) {
+                            const col = byteCol * 4 + px;
+                            if (col < width) {
+                                frameData[col][row] = pixels[px];
+                            }
+                        }
+                    }
+                }
+            } else if (importMode === 'rowsChars') {
+                // Parse as character chunks (8 bytes per character)
+                const charsPerRow = Math.floor(width / 4);
+                const charsPerCol = Math.ceil(height / 8);
+                const expectedBytes = charsPerRow * charsPerCol * 8;
+
+                if (byteData.length < expectedBytes) {
+                    alert(`Insufficient data: ${byteData.length} bytes provided, need at least ${expectedBytes} for ${charsPerRow}x${charsPerCol} chars!`);
+                    return null;
+                }
+
+                let byteIndex = 0;
+                for (let charY = 0; charY < charsPerCol; charY++) {
+                    for (let charX = 0; charX < charsPerRow; charX++) {
+                        for (let scanline = 0; scanline < 8; scanline++) {
+                            if (byteIndex >= byteData.length) break;
+                            const byte = byteData[byteIndex++];
+                            const row = charY * 8 + scanline;
+                            if (row >= height) continue;
+
+                            const pixels = [
+                                (byte >> 6) & 0x3,
+                                (byte >> 4) & 0x3,
+                                (byte >> 2) & 0x3,
+                                byte & 0x3
+                            ];
+
+                            for (let px = 0; px < 4; px++) {
+                                const col = charX * 4 + px;
+                                if (col < width) {
+                                    frameData[col][row] = pixels[px];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (frameData.length === 0) {
+            throw new Error("No valid data found in input");
+        }
+
+        // Normalize frameData to match sprite dimensions
+        const normalizedData = [];
+        for (let col = 0; col < options.spriteWidth; col++) {
+            normalizedData[col] = [];
+            for (let row = 0; row < options.spriteHeight; row++) {
+                normalizedData[col][row] = frameData[col] && frameData[col][row] !== undefined 
+                    ? frameData[col][row] 
+                    : 0;
+            }
+        }
+
+        return normalizedData;
+    } catch (error) {
+        alert(`Error parsing frame data: ${error.message}`);
+        return null;
+    }
+};
 
 // ************************************ TIMELINE OPERATIONS
 
@@ -1563,6 +1954,8 @@ $(document).ready(function () {
     app.addMenuItem('Clone', saveUndo('clone frame', cloneFrame), 'timemenu', 'Adds copy of frame');
     app.addMenuItem('Delete', saveUndo('delete frame', delFrame), 'timemenu', 'Deletes current frame');
     app.addSeparator('timemenu');
+		app.addMenuItem('Import frame', saveUndo('import frame', toggleImportFrame), 'timemenu', 'Imports a frame');
+		app.addSeparator('timemenu');
     app.addMenuItem('&#129092;&#128913;', animFrameLeft, 'timemenu', 'Moves current frame left');
     app.addMenuItem('&#128913;&#129094;', animFrameRight, 'timemenu', 'Moves current frame right');
     app.addSeparator('timemenu');
@@ -1583,6 +1976,47 @@ $(document).ready(function () {
     $("#main").bind('mousedown',()=>{$(".palette").remove()})
     document.addEventListener('keydown', keyPressed);
     $('html').on('dragover',e=>{e.preventDefault()});
+
+		// Add click handler for import button
+    $('#import_submit').on('click', importFrame);
+
+    // Add file input and drag-drop handlers for import
+    const importTextArea = $('#import_text');
+    const fileInput = $('<input type="file" id="import_file" style="display: none">');
+    
+    // Add file input to the dialog
+    $('#import_dialog').prepend(fileInput);
+
+    // Handle browse_raw button click
+    $('#browse_raw').on('click', () => fileInput.click());
+
+    fileInput.on('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleFileInput(e.target.files[0]);
+        }
+    });
+
+    importTextArea.on('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        importTextArea.addClass('dragover');
+    });
+
+    importTextArea.on('dragleave', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        importTextArea.removeClass('dragover');
+    });
+
+    importTextArea.on('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        importTextArea.removeClass('dragover');
+        
+        if (e.originalEvent.dataTransfer.files.length > 0) {
+            handleFileInput(e.originalEvent.dataTransfer.files[0]);
+        }
+    });
 
     loadWorkspace();
     loadUndos();

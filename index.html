@@ -80,8 +80,8 @@
             <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Donate with PayPal button" class="donate">
             </form>
 
-          This software is free.<br> Source code <a href='https://sourceforge.net/p/swspred-atari/code/HEAD/tree/'>available</a>. <br>
-          Coded for you by <a href='http://matosimi.atari.org'>matosimi</a>, forked from <a href='https://bocianu.gitlab.io/spred/'>SprEd</a> by <a href='https://bocianu.atari.pl'>bocianu</a>.<br><br>
+          This software is free.<br> Source code <a href='https://github.com/matosimi/SwSprEd'>available</a>. <br>
+          Coded for you by <a href='https://matosimi.atari.org'>matosimi</a>, forked from <a href='https://bocianu.gitlab.io/spred/'>SprEd</a> by <a href='https://bocianu.atari.pl'>bocianu</a>.<br><br>
           If you like this app, please consider a donation.<br><br>
           <hr>
         </div>
@@ -102,7 +102,7 @@
               <select id='opt_lastTemplate_i' class='dialog_text_input'>
               </select>
             </fieldset>
-            <textarea id='export_frame'></textarea>
+            <textarea id='export_frame' spellcheck="false"></textarea>
             <hr>
           </div>
 
@@ -110,6 +110,30 @@
         <div class='menuitem clear_left' id='close_export'>Close</div>
       </div>
   </div>
+	
+	<div id="import_dialog" class="dialog">
+    <div class='dialog_title'>Import Frame Data</div>
+		<div class='dialog_content'>
+        <div class='dialog_blocks'>
+          <div class='dialog_block'>
+					<fieldset>
+					<label class='dialog_label'>Import type:</label>
+						<select id='import_mode' class='dialog_text_input'>
+						<option value='fontmaker'>FontMaker (clipboard JSON 8-byte character chunks in rows)</option>
+						<option value='columns'>Columns (column of bytes, column by column)</option>
+						<option value='rowsData'>Rows Data (row by row)</option>
+						<option value='rowsChars'>Rows Chars (8-byte character chunks in rows)</option>
+            </select>
+					</fieldset>
+          <div class='menuitem clear_left' id='browse_raw'>Browse...</div><hr>
+          <textarea class='clear_left' id="import_text" rows="20" cols="50" spellcheck="false" placeholder="Paste your frame data here... or drag and drop a file here"></textarea>
+    <hr>
+		</div>
+		</div>
+		<div class='menuitem clear_left' id='import_submit'>Import</div>
+		<div class='menuitem' id='close_import' onclick="toggleImportFrame()">Close</div>
+	</div>
+	</div>
   
 
   <div id='options_dialog' class='dialog'>
@@ -134,6 +158,8 @@
                 <option value='16'>16</option>
 								<option value='20'>20</option>
                 <option value='24'>24</option>
+								<option value='28'>28</option>
+                <option value='32'>32</option>
               </select>
             </fieldset>
 

@@ -34,6 +34,7 @@ const gui = (options, dropHandler) => {
 
     $('#save_options').click(saveOptions);
     $('#close_export').click(saveOptions);
+		$('#close_import').click(saveOptions);
     $('#close_help').click(toggleHelp);
     $('#opt_lastTemplate_i').change(templateChange);
 
